@@ -1,7 +1,7 @@
 # Jakarta FlowGIS — Traffic Flow & Hotspot Explorer (MVP)
 
 Glassmorphic traffic map for DKI Jakarta. Real OSM road geometry + simulated speeds (BPR model) served by FastAPI;
-Next.js + MapLibre renders it. MVP scope: keep it lean — no DB, no auth, no real traffic feed yet. See README for the model.
+Next.js + MapLibre renders it. MVP scope: keep it lean — no DB, no auth, no real traffic feed yet. See `docs/TECHNICAL.md` for formulas, sources, dummy data and the real-data plan; update it when the model, network or API contract changes.
 
 ## Layout
 - `backend/` — FastAPI (Python 3.13, `.venv`).

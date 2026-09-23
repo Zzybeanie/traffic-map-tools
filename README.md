@@ -4,6 +4,8 @@ A map of Jakarta's main roads, colored by how congested they are, with a time-of
 
 **MVP status:** road geometry is real (OpenStreetMap), but traffic speeds are **simulated** by a transport-planning model. There is no live feed yet.
 
+**Full technical docs** (formulas with sources, all dummy data, API reference, and how to plug in real traffic data): [docs/TECHNICAL.md](docs/TECHNICAL.md)
+
 ## How it works
 
 ```

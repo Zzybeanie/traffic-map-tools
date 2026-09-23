@@ -23,6 +23,14 @@ def test_every_corridor_has_geometry_and_valid_ratio():
         assert 0 < f["properties"]["congestion_ratio"] <= 1
 
 
+def test_level_text_matches_published_ratio():
+    # The map colors by congestion_ratio; every label must agree with that exact number
+    for h in range(24):
+        for f in m.corridors(h)["features"] + m.spots(h)["features"]:
+            p = f["properties"]
+            assert m.level(p["congestion_ratio"]) in (p.get("traffic_level"), {"free_flow_hub": "free_flow", "moderate": "moderate", "traffic_jam_bottleneck": "congested"}.get(p.get("spot_type")))
+
+
 def test_filters():
     assert all(f["properties"]["congestion_ratio"] >= 0.85 for f in m.corridors(8, 0.85)["features"])
     assert all(f["properties"]["spot_type"] == "traffic_jam_bottleneck" for f in m.spots(8, "bottleneck_only")["features"])

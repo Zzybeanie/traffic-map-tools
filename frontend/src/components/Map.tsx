@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import type {
-  ExpressionSpecification,
   FilterSpecification,
   MapLayerMouseEvent,
   Map as MapLibreMap,
@@ -25,9 +24,8 @@ import {
   createSpotPopupHtml,
 } from "./TrafficPopup";
 import { applyBasemapTheme, MAP_STYLES, Theme } from "@/lib/basemap";
+import { FREE_FLOW, RATIO_COLOR } from "@/lib/levels";
 
-// Same thresholds as the backend model and the legend: free flow >= 0.85, congested < 0.50
-const RATIO_COLOR: ExpressionSpecification = ["step", ["get", "congestion_ratio"], "#f43f5e", 0.5, "#f59e0b", 0.85, "#10b981"];
 
 const CORRIDOR_LAYERS = ["corridors-glow", "corridors-casing", "corridors-flow"];
 const SPOT_LAYERS = ["spots-pulsing-aura", "spots-core"];
@@ -183,15 +181,7 @@ export function MapComponent({
           "line-join": "round",
         },
         paint: {
-          "line-color": [
-            "step",
-            ["get", "congestion_ratio"],
-            "#f43f5e", // < 0.50 (Congested Rose)
-            0.50,
-            "#f59e0b", // 0.50 - 0.84 (Moderate Amber)
-            0.85,
-            "#10b981", // >= 0.85 (Free Flow Emerald)
-          ],
+          "line-color": RATIO_COLOR,
           "line-width": [
             "match",
             ["get", "road_category"],
@@ -287,9 +277,13 @@ export function MapComponent({
       animFrameRef.current = requestAnimationFrame(animateAura);
 
       // --- Interactive Hover Events ---
+      // mousemove (not mouseenter): sliding from one line onto an adjacent/overlapping one never leaves the
+      // layer, so an enter-only handler would keep showing the first road's card over a differently colored line.
+      // hoverKey skips rebuilding the HTML while the cursor stays on the same feature with the same data.
+      let hoverKey = "";
 
       // Spot hover
-      map.on("mouseenter", "spots-core", (e: MapLayerMouseEvent) => {
+      map.on("mousemove", "spots-core", (e: MapLayerMouseEvent) => {
         map.getCanvas().style.cursor = "pointer";
         if (!e.features || !e.features[0]) return;
 
@@ -301,33 +295,37 @@ export function MapComponent({
           coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
         }
 
-        popup
-          .setLngLat(coordinates)
-          .setHTML(createSpotPopupHtml(properties))
-          .addTo(map);
+        const key = `spot:${feature.id}:${properties.congestion_ratio}`;
+        if (key !== hoverKey) popup.setHTML(createSpotPopupHtml(properties));
+        hoverKey = key;
+        popup.setLngLat(coordinates).addTo(map);
       });
 
       map.on("mouseleave", "spots-core", () => {
         map.getCanvas().style.cursor = "";
+        hoverKey = "";
         popup.remove();
       });
 
       // Corridor hover
-      map.on("mouseenter", "corridors-flow", (e: MapLayerMouseEvent) => {
+      map.on("mousemove", "corridors-flow", (e: MapLayerMouseEvent) => {
+        // A junction dot sits on top of its roads; let the spot card win
+        if (map.queryRenderedFeatures(e.point, { layers: ["spots-core"] }).length) return;
         map.getCanvas().style.cursor = "pointer";
         if (!e.features || !e.features[0]) return;
 
         const feature = e.features[0];
         const properties = feature.properties as CorridorProperties;
 
-        popup
-          .setLngLat(e.lngLat)
-          .setHTML(createCorridorPopupHtml(properties))
-          .addTo(map);
+        const key = `corridor:${feature.id}:${properties.congestion_ratio}`;
+        if (key !== hoverKey) popup.setHTML(createCorridorPopupHtml(properties));
+        hoverKey = key;
+        popup.setLngLat(e.lngLat).addTo(map);
       });
 
       map.on("mouseleave", "corridors-flow", () => {
         map.getCanvas().style.cursor = "";
+        hoverKey = "";
         popup.remove();
       });
     };
@@ -389,7 +387,7 @@ export function MapComponent({
         }
       };
       const freeFlowOnly = filters.filterMode === "free_flow_only";
-      setAll(CORRIDOR_LAYERS, filters.showCorridors, [">=", ["get", "congestion_ratio"], freeFlowOnly ? 0.85 : filters.minThreshold]);
+      setAll(CORRIDOR_LAYERS, filters.showCorridors, [">=", ["get", "congestion_ratio"], freeFlowOnly ? FREE_FLOW : filters.minThreshold]);
       setAll(SPOT_LAYERS, filters.showSpots, freeFlowOnly ? ["==", ["get", "spot_type"], "free_flow_hub"] : null);
     } catch (e) {
       console.warn("Filter update sync:", e);

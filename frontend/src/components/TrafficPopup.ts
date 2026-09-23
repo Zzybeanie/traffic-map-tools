@@ -1,16 +1,8 @@
 import { CorridorProperties, SpotProperties } from "@/types/traffic";
+import { levelOf } from "@/lib/levels";
 
 // Popups are raw HTML injected by MapLibre, but they still live under <html class="dark">, so Tailwind
 // classes (and the slate/white remap in globals.css) theme them like the rest of the UI.
-
-type Level = { label: string; color: string };
-
-// Same thresholds as the map and legend: free flow >= 0.85, congested < 0.50
-function levelOf(ratio: number): Level {
-  if (ratio >= 0.85) return { label: "Free flow", color: "#10b981" };
-  if (ratio >= 0.5) return { label: "Moderate", color: "#f59e0b" };
-  return { label: "Congested", color: "#f43f5e" };
-}
 
 function pill(text: string, color: string): string {
   return `<span class="whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold"

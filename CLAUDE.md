@@ -46,7 +46,14 @@ cd frontend && npm install && npm run dev              # http://localhost:3000
   `-webkit-backdrop-filter` line is also present, leaving Chrome with no blur at all.
 - Theme switch calls `map.setStyle(..., { transformStyle })` and copies our sources/layers into the new style;
   add any new layer id to `CORRIDOR_LAYERS`/`SPOT_LAYERS` in `Map.tsx` or it vanishes on toggle.
-- Speed-ratio thresholds 0.85 / 0.50 live in three places: `traffic_model.py`, `Map.tsx` RATIO_COLOR, Legend.
+- **Green/amber/red has one source per side**: backend `FREE_FLOW`/`CONGESTED` in `traffic_model.py`, frontend
+  `src/lib/levels.ts` (`levelOf()` + `RATIO_COLOR` map expression). Map, popups and browse lists all use it; never
+  hand-write thresholds. The backend rounds the ratio *before* deriving level/spot_type so text matches color
+  (`test_level_text_matches_published_ratio`). Legend copy is the only hand-written copy of the numbers.
+- Map hover uses `mousemove`, not `mouseenter`: sliding between adjacent/overlapping roads never leaves the layer,
+  so enter-only handlers showed the previous road's card.
+- `~/Documents` is iCloud-synced: it spawns "file 2.ext" duplicates (seen in `.next/` and `.git/`). If tsc reports
+  duplicate identifiers from `.next/types/* 2.ts`, delete them: `find .next -name "* 2.*" -delete`.
 - Overpass from python.org Python on macOS needs `SSL_CERT_FILE=/etc/ssl/cert.pem`; send a User-Agent or it 406s.
 - Headless screenshots: gstack `browse` gets killed here; Playwright with the cached `chromium_headless_shell` +
   `--use-angle=swiftshader` renders WebGL fine.

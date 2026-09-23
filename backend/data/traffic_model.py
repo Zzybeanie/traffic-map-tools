@@ -51,7 +51,8 @@ def _vc_ratio(entity_id: str, sensitivity: float, hour: int, slot: int) -> float
 
 
 def speed_ratio(vc: float) -> float:
-    return max(0.12, 1 / (1 + ALPHA * vc**BETA))
+    # Rounded here, once: the client colors by this exact value, so the level text must be derived from it too
+    return round(max(0.12, 1 / (1 + ALPHA * vc**BETA)), 2)
 
 
 def level(ratio: float) -> str:
@@ -96,7 +97,7 @@ def corridors(hour: int | None = None, min_ratio: float = 0.0) -> dict[str, Any]
                 "focus": road["properties"]["focus"],
                 "free_flow_speed": c["free_flow_speed"],
                 "current_speed": round(speed, 1),
-                "congestion_ratio": round(ratio, 2),
+                "congestion_ratio": ratio,
                 "vc_ratio": round(vc, 2),
                 "traffic_level": level(ratio),
                 "delay_mins": round(length / speed * 60 - length / c["free_flow_speed"] * 60, 1),
@@ -122,7 +123,7 @@ def spots(hour: int | None = None, spot_type: str = "all") -> dict[str, Any]:
                 "spot_code": s["id"].upper(),
                 "spot_type": {"free_flow": "free_flow_hub", "moderate": "moderate", "congested": "traffic_jam_bottleneck"}[lvl],
                 "sub_district": s["sub_district"],
-                "congestion_ratio": round(ratio, 2),
+                "congestion_ratio": ratio,
                 "vc_ratio": round(vc, 2),
                 "average_speed_kmh": round(SPOT_FREE_FLOW_KMH * ratio, 1),
                 "delay_mins": round(SPOT_CLEAR_MINS * (1 / ratio - 1), 1),

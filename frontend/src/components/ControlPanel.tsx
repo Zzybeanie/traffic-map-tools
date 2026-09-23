@@ -12,6 +12,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { FilterControlsState, TrafficSummary } from "@/types/traffic";
+import { levelOf } from "@/lib/levels";
 
 interface ControlPanelProps {
   filters: FilterControlsState;
@@ -20,7 +21,7 @@ interface ControlPanelProps {
   hour: number | null;
   onHourChange: (hour: number | null) => void;
   corridorsList: Array<{ id: string; name: string; ratio: number; speed: number; coords: [number, number] }>;
-  spotsList: Array<{ id: string; name: string; type: string; speed: number; coords: [number, number] }>;
+  spotsList: Array<{ id: string; name: string; ratio: number; speed: number; coords: [number, number] }>;
   onFlyToLocation: (coords: [number, number], zoom?: number, name?: string) => void;
 }
 
@@ -254,8 +255,7 @@ export function ControlPanel({
                     </div>
                     <div className="space-y-1.5">
                       {corridorsList.map((c) => {
-                        const isFree = c.ratio >= 0.85;
-                        const isModerate = c.ratio >= 0.50 && c.ratio < 0.85;
+                        const level = levelOf(c.ratio);
                         return (
                           <button
                             key={c.id}
@@ -272,7 +272,7 @@ export function ControlPanel({
                             </div>
                             <span
                               className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                                isFree ? "bg-emerald-500" : isModerate ? "bg-amber-500" : "bg-rose-500"
+                                level.dot
                               }`}
                             />
                           </button>
@@ -287,7 +287,7 @@ export function ControlPanel({
                     </div>
                     <div className="space-y-1.5">
                       {spotsList.map((s) => {
-                        const isBottleneck = s.type === "traffic_jam_bottleneck";
+                        const level = levelOf(s.ratio);
                         return (
                           <button
                             key={s.id}
@@ -299,12 +299,12 @@ export function ControlPanel({
                                 {s.name}
                               </div>
                               <div className="text-[10px] text-slate-400">
-                                {isBottleneck ? "Bottleneck Point" : "Free-Flow Hub"} • {s.speed} km/h
+                                {level.label} • {s.speed} km/h
                               </div>
                             </div>
                             <span
                               className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                                isBottleneck ? "bg-rose-500 ring-2 ring-rose-200" : "bg-emerald-500"
+                                level.dot
                               }`}
                             />
                           </button>

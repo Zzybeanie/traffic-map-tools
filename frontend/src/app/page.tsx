@@ -161,7 +161,7 @@ export default function JakartaTrafficPage() {
       return {
         id: String(f.id),
         name: f.properties.spot_name,
-        type: f.properties.spot_type,
+        ratio: f.properties.congestion_ratio,
         speed: f.properties.average_speed_kmh,
         coords: f.geometry.coordinates as [number, number],
       };

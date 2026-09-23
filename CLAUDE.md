@@ -33,6 +33,8 @@ cd frontend && npm install && npm run dev              # http://localhost:3000
   glow layer + casing (white on light, near-black on dark) so colors pop on either. Ratio colors: ≥0.85 `#10b981`,
   0.50–0.84 `#f59e0b`, <0.50 `#f43f5e`.
 - Glass surfaces use the `.glass` class (has a `.dark .glass` variant) — reuse it, don't re-inline `backdrop-blur` stacks.
+- Map popups (`TrafficPopup.ts`) are HTML strings but use Tailwind classes + `.glass`, so they theme with the page.
+  Keep classes as literal strings there so Tailwind's scanner picks them up; dynamic colors go in inline `style`.
 - Sliders use the `.range` class (styled track + thumb). Pass `--range-track` inline for a colored track;
   the speed-ratio slider draws the legend scale and greys the hidden part.
 

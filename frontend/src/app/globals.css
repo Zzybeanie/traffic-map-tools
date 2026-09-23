@@ -133,7 +133,7 @@ body {
   border-color: #10b981;
 }
 
-/* Clean up MapLibre default popup styles for light glassmorphism */
+/* Strip MapLibre popup chrome; the card itself carries the .glass styling */
 .maplibregl-popup {
   z-index: 50;
   max-width: 320px !important;
@@ -146,9 +146,9 @@ body {
   border-radius: 1rem !important;
 }
 
+/* Popups are floating glass cards (see TrafficPopup.ts); a solid arrow tip would clash with the blur */
 .maplibregl-popup-tip {
-  border-top-color: rgba(255, 255, 255, 0.95) !important;
-  border-bottom-color: rgba(255, 255, 255, 0.95) !important;
+  display: none;
 }
 
 .maplibregl-popup-close-button {

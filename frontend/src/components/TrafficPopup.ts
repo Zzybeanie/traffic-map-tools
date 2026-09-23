@@ -1,188 +1,101 @@
 import { CorridorProperties, SpotProperties } from "@/types/traffic";
 
+// Popups are raw HTML injected by MapLibre, but they still live under <html class="dark">, so Tailwind
+// classes (and the slate/white remap in globals.css) theme them like the rest of the UI.
+
+type Level = { label: string; color: string };
+
+// Same thresholds as the map and legend: free flow >= 0.85, congested < 0.50
+function levelOf(ratio: number): Level {
+  if (ratio >= 0.85) return { label: "Free flow", color: "#10b981" };
+  if (ratio >= 0.5) return { label: "Moderate", color: "#f59e0b" };
+  return { label: "Congested", color: "#f43f5e" };
+}
+
+function pill(text: string, color: string): string {
+  return `<span class="whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold"
+    style="color:${color};background:${color}22;box-shadow:inset 0 0 0 1px ${color}55">${text}</span>`;
+}
+
+function header(title: string, subtitle: string, badge: string): string {
+  return `
+    <div class="mb-2.5 flex items-start justify-between gap-2">
+      <div>
+        <div class="text-[13px] font-bold leading-tight text-slate-900">${title}</div>
+        <div class="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">${subtitle}</div>
+      </div>
+      ${badge}
+    </div>`;
+}
+
+function stat(label: string, value: string, unit: string, color?: string): string {
+  return `
+    <div class="rounded-lg border border-slate-200/70 bg-white/50 px-2 py-1.5">
+      <div class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">${label}</div>
+      <div class="text-[13px] font-extrabold text-slate-900"${color ? ` style="color:${color}"` : ""}>${value}
+        <span class="text-[9px] font-medium text-slate-500">${unit}</span></div>
+    </div>`;
+}
+
+function footnote(text: string): string {
+  return `<div class="mt-2.5 border-t border-slate-200/70 pt-2 text-[10.5px] leading-snug text-slate-600">${text}</div>`;
+}
+
+const SHELL = "glass w-[268px] rounded-2xl p-3.5 font-sans text-slate-900";
+
 export function createCorridorPopupHtml(props: CorridorProperties): string {
-  const isFree = props.congestion_ratio >= 0.85;
-  const isModerate = props.congestion_ratio >= 0.50 && props.congestion_ratio < 0.85;
-  const statusColor = isFree ? "#10b981" : isModerate ? "#f59e0b" : "#f43f5e";
-  const statusBg = isFree ? "rgba(16, 185, 129, 0.12)" : isModerate ? "rgba(245, 158, 11, 0.12)" : "rgba(244, 63, 94, 0.12)";
-  const statusText = isFree ? "Free Flow" : isModerate ? "Moderate" : "Congested";
-  const pctRatio = Math.round(props.congestion_ratio * 100);
+  const level = levelOf(props.congestion_ratio);
+  const pct = Math.min(Math.round(props.congestion_ratio * 100), 100);
 
   return `
-    <div style="
-      background: rgba(255, 255, 255, 0.92);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.95);
-      box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
-      border-radius: 16px;
-      padding: 14px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      color: #0f172a;
-      width: 260px;
-    ">
-      <!-- Header -->
-      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-        <div>
-          <div style="font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.2;">
-            ${props.road_name}
-          </div>
-          <div style="font-size: 10px; color: #64748b; font-weight: 500; text-transform: uppercase; margin-top: 2px;">
-            ${props.corridor_code} • ${props.road_category}
-          </div>
-        </div>
-        <span style="
-          background: ${statusBg};
-          color: ${statusColor};
-          border: 1px solid ${statusColor}40;
-          font-size: 10px;
-          font-weight: 700;
-          padding: 2px 7px;
-          border-radius: 9999px;
-          white-space: nowrap;
-        ">
-          ${statusText}
-        </span>
-      </div>
+    <div class="${SHELL}">
+      ${header(props.road_name, `${props.road_category} • ${props.lanes} lanes`, pill(level.label, level.color))}
 
-      <!-- Speed & Ratio Metrics -->
-      <div style="
-        background: rgba(248, 250, 252, 0.85);
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 8px 10px;
-        margin-bottom: 8px;
-      ">
-        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
-          <span style="font-size: 11px; color: #64748b;">Current Speed</span>
-          <span style="font-size: 14px; font-weight: 800; color: #0f172a;">${props.current_speed} <span style="font-size: 10px; font-weight: 500; color: #64748b;">km/h</span></span>
+      <div class="mb-2 rounded-xl border border-slate-200/70 bg-white/50 px-2.5 py-2">
+        <div class="flex items-baseline justify-between">
+          <span class="text-[11px] text-slate-500">Current speed</span>
+          <span class="text-[15px] font-extrabold text-slate-900">${props.current_speed}
+            <span class="text-[10px] font-medium text-slate-500">km/h</span></span>
         </div>
-        
-        <!-- Speed Bar -->
-        <div style="height: 5px; background: #e2e8f0; border-radius: 9999px; overflow: hidden; margin: 4px 0;">
-          <div style="
-            width: ${Math.min(pctRatio, 100)}%;
-            height: 100%;
-            background: ${statusColor};
-            border-radius: 9999px;
-          "></div>
+        <div class="my-1.5 h-1.5 overflow-hidden rounded-full bg-slate-200">
+          <div class="h-full rounded-full" style="width:${pct}%;background:${level.color}"></div>
         </div>
-
-        <div style="display: flex; justify-content: space-between; font-size: 10px; color: #64748b; margin-top: 4px;">
-          <span>Free-flow: ${props.free_flow_speed} km/h</span>
-          <span style="font-weight: 700; color: ${statusColor};">${pctRatio}% efficiency</span>
+        <div class="flex justify-between text-[10px] text-slate-500">
+          <span>Free-flow ${props.free_flow_speed} km/h</span>
+          <span class="font-bold" style="color:${level.color}">${pct}% of free-flow</span>
         </div>
       </div>
 
-      <!-- Detail rows -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; margin-bottom: 8px;">
-        <div style="background: #f1f5f9; padding: 5px 8px; border-radius: 8px;">
-          <div style="font-size: 9px; color: #64748b; text-transform: uppercase;">Est. Delay</div>
-          <div style="font-weight: 700; color: #0f172a;">+${props.delay_mins} mins</div>
-        </div>
-        <div style="background: #f1f5f9; padding: 5px 8px; border-radius: 8px;">
-          <div style="font-size: 9px; color: #64748b; text-transform: uppercase;">Corridor Span</div>
-          <div style="font-weight: 700; color: #0f172a;">${props.length_km} km</div>
-        </div>
+      <div class="grid grid-cols-3 gap-1.5">
+        ${stat("Delay", `+${props.delay_mins}`, "min", level.color)}
+        ${stat("Length", `${props.length_km}`, "km")}
+        ${stat("V/C", `${props.vc_ratio}`, "")}
       </div>
 
-      <!-- Description note -->
-      <div style="font-size: 10px; color: #64748b; line-height: 1.35; border-top: 1px solid #f1f5f9; pt: 6px;">
-        ${props.status_description}
-      </div>
-    </div>
-  `;
+      ${footnote(props.status_description)}
+    </div>`;
 }
 
 export function createSpotPopupHtml(props: SpotProperties): string {
-  const isBottleneck = props.spot_type === "traffic_jam_bottleneck";
-  const statusColor = isBottleneck ? "#f43f5e" : "#10b981";
-  const statusBg = isBottleneck ? "rgba(244, 63, 94, 0.12)" : "rgba(16, 185, 129, 0.12)";
-  const typeLabel = isBottleneck ? "Traffic Jam Bottleneck" : "Free-Flow Open Hub";
+  const level = levelOf(props.congestion_ratio);
+  const priority = props.alert_priority === "normal" ? "" : pill(props.alert_priority.toUpperCase(), level.color);
 
   return `
-    <div style="
-      background: rgba(255, 255, 255, 0.92);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.95);
-      box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
-      border-radius: 16px;
-      padding: 14px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      color: #0f172a;
-      width: 270px;
-    ">
-      <!-- Header -->
-      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
-        <div>
-          <div style="font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.2;">
-            ${props.spot_name}
-          </div>
-          <div style="font-size: 10px; color: #64748b; font-weight: 500; margin-top: 2px;">
-            ${props.sub_district}
-          </div>
-        </div>
-        <span style="
-          background: ${statusBg};
-          color: ${statusColor};
-          border: 1px solid ${statusColor}40;
-          font-size: 10px;
-          font-weight: 700;
-          padding: 2px 7px;
-          border-radius: 9999px;
-          white-space: nowrap;
-        ">
-          ${props.alert_priority.toUpperCase()}
-        </span>
+    <div class="${SHELL}">
+      ${header(props.spot_name, props.sub_district, priority || pill(level.label, level.color))}
+
+      <div class="mb-2 flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10.5px] font-semibold"
+        style="color:${level.color};background:${level.color}1f">
+        <span class="inline-block h-1.5 w-1.5 rounded-full" style="background:${level.color}"></span>
+        ${level.label} junction
       </div>
 
-      <!-- Spot Category pill -->
-      <div style="
-        font-size: 10.5px;
-        font-weight: 600;
-        color: ${statusColor};
-        background: ${statusBg};
-        padding: 4px 8px;
-        border-radius: 8px;
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      ">
-        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 9999px; background: ${statusColor};"></span>
-        ${typeLabel}
+      <div class="grid grid-cols-3 gap-1.5">
+        ${stat("Speed", `${props.average_speed_kmh}`, "km/h")}
+        ${stat("Delay", `+${props.delay_mins}`, "min", level.color)}
+        ${stat("Volume", `${props.vessel_volume_pcu}`, "pcu/h")}
       </div>
 
-      <!-- Metrics -->
-      <div style="
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 6px;
-        margin-bottom: 8px;
-        text-align: center;
-      ">
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px 4px; border-radius: 8px;">
-          <div style="font-size: 9px; color: #64748b;">Avg Speed</div>
-          <div style="font-size: 13px; font-weight: 800; color: #0f172a;">${props.average_speed_kmh}</div>
-          <div style="font-size: 8px; color: #94a3b8;">km/h</div>
-        </div>
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px 4px; border-radius: 8px;">
-          <div style="font-size: 9px; color: #64748b;">Delay</div>
-          <div style="font-size: 13px; font-weight: 800; color: ${isBottleneck ? '#f43f5e' : '#10b981'};">+${props.delay_mins}m</div>
-          <div style="font-size: 8px; color: #94a3b8;">queue</div>
-        </div>
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px 4px; border-radius: 8px;">
-          <div style="font-size: 9px; color: #64748b;">Volume</div>
-          <div style="font-size: 13px; font-weight: 800; color: #0f172a;">${props.vessel_volume_pcu}</div>
-          <div style="font-size: 8px; color: #94a3b8;">pcu/hr</div>
-        </div>
-      </div>
-
-      <!-- Description note -->
-      <div style="font-size: 10px; color: #64748b; line-height: 1.35; border-top: 1px solid #f1f5f9; pt: 6px;">
-        ${props.status_description}
-      </div>
-    </div>
-  `;
+      ${footnote(props.status_description)}
+    </div>`;
 }

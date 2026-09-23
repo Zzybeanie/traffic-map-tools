@@ -21,7 +21,7 @@ network.py (road inventory) ─────────────────�
    - **BPR curve.** This is the textbook formula from the US Bureau of Public Roads. It turns V/C into travel time: `time = free_flow_time × (1 + α·(V/C)^β)`. From that we get the **speed ratio R = current / free-flow speed**, which drives the colors: green R ≥ 0.85, amber 0.50–0.84, red < 0.50.
    - The model also derives delay minutes, junction queue volume (PCU = passenger-car units, where a truck counts as more than one car), and length-weighted network KPIs.
 4. **API.** `GET /api/v1/traffic/{corridors,spots,summary}?hour=0-23` returns GeoJSON. Leave out `hour` to get the current hour in Jakarta time (WIB).
-5. **Frontend.** Next.js polls the API every 60 s through a dev proxy. MapLibre GL draws the lines and dots over a greyed CartoDB Positron basemap. Frosted-glass panels hold the filters, the time scrubber, KPIs and the legend.
+5. **Frontend.** Next.js polls the API every 60 s through a dev proxy. MapLibre GL draws glowing lines and dots over a CARTO basemap. There's a light/dark toggle (Positron / Dark Matter) in the header. Frosted-glass panels hold the filters, the time scrubber, KPIs and the legend.
 
 ### Making it real later
 

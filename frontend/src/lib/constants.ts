@@ -7,8 +7,6 @@ export const JAKARTA_BOUNDS: [[number, number], [number, number]] = [
   [106.975, -6.088], // Northeast
 ];
 
-export const MAP_STYLE_URL = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
-
 export const INITIAL_SUMMARY: TrafficSummary = {
   hour: 0,
   is_live: true,

@@ -18,6 +18,7 @@ import {
   TrafficSummary,
   FilterControlsState,
 } from "@/types/traffic";
+import type { Theme } from "@/lib/basemap";
 
 // Dynamically import MapComponent to ensure WebGL only runs client-side
 const MapComponent = dynamic(() => import("@/components/Map"), {
@@ -42,6 +43,24 @@ export default function JakartaTrafficPage() {
   const [isOffline, setIsOffline] = useState(false);
   // null = follow the current WIB hour; 0-23 = replay that hour
   const [hour, setHour] = useState<number | null>(null);
+  // The inline script in layout.tsx sets the .dark class before paint; mirror it into state
+  const [theme, setTheme] = useState<Theme>("light");
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
+  }, []);
+
+  const handleToggleTheme = () => {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    document.documentElement.classList.toggle("dark", next === "dark");
+    try {
+      localStorage.setItem("theme", next);
+    } catch {
+      // private mode: theme just won't persist
+    }
+    setTheme(next);
+  };
   const [currentZoom, setCurrentZoom] = useState(JAKARTA_DEFAULT_ZOOM);
   const [pitchTarget, setPitchTarget] = useState(0);
   const [flyToTarget, setFlyToTarget] = useState<{ coords: [number, number]; zoom: number; key: number } | null>(null);
@@ -159,6 +178,7 @@ export default function JakartaTrafficPage() {
         onZoomChange={setCurrentZoom}
         flyToTarget={flyToTarget}
         pitchTarget={pitchTarget}
+        theme={theme}
       />
 
       {/* Floating Top Header */}
@@ -170,6 +190,8 @@ export default function JakartaTrafficPage() {
         isRefreshing={isRefreshing}
         summary={summary}
         isOffline={isOffline}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
 
       {/* Floating Collapsible Left Control Panel */}

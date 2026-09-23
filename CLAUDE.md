@@ -13,7 +13,8 @@ Next.js + MapLibre renders it. MVP scope: keep it lean — no DB, no auth, no re
 - `frontend/` — Next.js **16** (Turbopack), React 19, Tailwind v4, maplibre-gl **v6**, framer-motion, lucide-react.
   Read `frontend/AGENTS.md` first: this Next.js differs from training data.
   - `src/app/page.tsx` owns state; `components/` = Map, Header, ControlPanel, Legend, TrafficPopup.
-  - No offline fallback data: if the API is down the header says so. `src/lib/basemap.ts` greys the Positron style.
+  - No offline fallback data: if the API is down the header says so.
+  - `src/lib/basemap.ts`: style URL per theme (Positron light / Dark Matter dark) + runtime recolor of basemap layers.
   - `/api/v1/*` is proxied to `127.0.0.1:8000` via `next.config.ts` rewrites.
 
 ## Run
@@ -24,8 +25,16 @@ cd frontend && npm install && npm run dev              # http://localhost:3000
 
 ## Design
 - Taste skills live in `.agents/skills/` (Leonxlnx/taste-skill: `design-taste-frontend`, etc.). Dials: VARIANCE 6, MOTION 5, DENSITY 5.
-- Basemap: CartoDB Positron recolored slate-grey at runtime so white glass panels float. Ratio colors: ≥0.85 `#10b981`, 0.50–0.84 `#f59e0b`, <0.50 `#f43f5e`.
-- Glass surfaces use the `.glass` class in `globals.css` — reuse it, don't re-inline `bg-white/xx backdrop-blur` stacks.
+- **Light/dark toggle** (header sun/moon). `.dark` on `<html>`, set before paint by the inline script in `layout.tsx`,
+  saved in `localStorage.theme` (defaults to the OS setting). Dark mode works by **remapping Tailwind's slate/white
+  color variables** in `globals.css`, so components use plain `text-slate-900`/`bg-white/35` and flip automatically.
+  Don't add `dark:` variants unless a remapped color reads wrong. `text-white` on emerald becomes dark in dark mode (intended).
+- Basemaps: tinted Positron (blue water, cool land) in light, CARTO Dark Matter in dark. Traffic lines get a blurred
+  glow layer + casing (white on light, near-black on dark) so colors pop on either. Ratio colors: ≥0.85 `#10b981`,
+  0.50–0.84 `#f59e0b`, <0.50 `#f43f5e`.
+- Glass surfaces use the `.glass` class (has a `.dark .glass` variant) — reuse it, don't re-inline `backdrop-blur` stacks.
+- Sliders use the `.range` class (styled track + thumb). Pass `--range-track` inline for a colored track;
+  the speed-ratio slider draws the legend scale and greys the hidden part.
 
 ## Gotchas
 - **MapLibre v6 worker under Turbopack**: v6 loads its worker relative to `import.meta.url`, which breaks when bundled
@@ -33,6 +42,8 @@ cd frontend && npm install && npm run dev              # http://localhost:3000
   and `Map.tsx` calls `setWorkerUrl("/maplibre/maplibre-gl-worker.mjs")`. Re-run `npm install` after upgrading maplibre.
 - **Write `backdrop-filter` unprefixed only.** Lightning CSS (Turbopack) drops the standard property when a
   `-webkit-backdrop-filter` line is also present, leaving Chrome with no blur at all.
+- Theme switch calls `map.setStyle(..., { transformStyle })` and copies our sources/layers into the new style;
+  add any new layer id to `CORRIDOR_LAYERS`/`SPOT_LAYERS` in `Map.tsx` or it vanishes on toggle.
 - Speed-ratio thresholds 0.85 / 0.50 live in three places: `traffic_model.py`, `Map.tsx` RATIO_COLOR, Legend.
 - Overpass from python.org Python on macOS needs `SSL_CERT_FILE=/etc/ssl/cert.pem`; send a User-Agent or it 406s.
 - Headless screenshots: gstack `browse` gets killed here; Playwright with the cached `chromium_headless_shell` +

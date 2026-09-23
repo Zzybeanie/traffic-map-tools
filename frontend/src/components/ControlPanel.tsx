@@ -189,12 +189,15 @@ export function ControlPanel({
                       step="0.05"
                       value={filters.minThreshold}
                       onChange={(e) => onFilterChange({ minThreshold: parseFloat(e.target.value) })}
-                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
+                      aria-label="Minimum speed ratio"
+                      className="range"
+                      style={{ "--range-track": ratioTrack(filters.minThreshold) } as React.CSSProperties}
                     />
-                    <div className="flex justify-between text-[10px] text-slate-400 mt-1 font-mono">
-                      <span>0.50 (Moderate)</span>
-                      <span>0.85 (Free-flow)</span>
-                      <span>1.00</span>
+                    {/* Ticks sit at their true positions on the 0.50–1.00 scale */}
+                    <div className="relative mt-1 h-4 text-[10px] font-mono font-semibold text-slate-500">
+                      <span className="absolute left-0">0.50</span>
+                      <span className="absolute left-[70%] -translate-x-1/2 whitespace-nowrap text-emerald-700">0.85</span>
+                      <span className="absolute right-0">1.00</span>
                     </div>
                   </div>
 
@@ -378,7 +381,7 @@ function TimeOfDay({
         value={shown}
         onChange={(e) => onHourChange(Number(e.target.value))}
         aria-label="Hour of day"
-        className="mt-2 w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
+        className="range mt-2"
       />
       <div className="mt-1 flex items-baseline justify-between">
         <span className="font-mono text-sm font-bold text-slate-900">{String(shown).padStart(2, "0")}:00 WIB</span>
@@ -386,4 +389,11 @@ function TimeOfDay({
       </div>
     </div>
   );
+}
+
+// Track shows the legend scale over the slider's 0.50–1.00 range (amber until 0.85, then emerald);
+// the part left of the thumb is greyed because those roads are hidden.
+function ratioTrack(value: number): string {
+  const hidden = Math.max(0, Math.min(1, (value - 0.5) / 0.5)) * 100;
+  return `linear-gradient(90deg, rgba(71, 85, 105, 0.85) 0 ${hidden}%, transparent ${hidden}%), linear-gradient(90deg, #f59e0b 0 70%, #10b981 70% 100%)`;
 }

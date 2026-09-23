@@ -13,7 +13,6 @@ import {
   JAKARTA_CENTER,
   JAKARTA_DEFAULT_ZOOM,
   JAKARTA_BOUNDS,
-  MAP_STYLE_URL,
 } from "@/lib/constants";
 import {
   GeoJsonFeatureCollection,
@@ -25,10 +24,22 @@ import {
   createCorridorPopupHtml,
   createSpotPopupHtml,
 } from "./TrafficPopup";
-import { applyGreyBasemap } from "@/lib/basemap";
+import { applyBasemapTheme, MAP_STYLES, Theme } from "@/lib/basemap";
 
 // Same thresholds as the backend model and the legend: free flow >= 0.85, congested < 0.50
 const RATIO_COLOR: ExpressionSpecification = ["step", ["get", "congestion_ratio"], "#f43f5e", 0.5, "#f59e0b", 0.85, "#10b981"];
+
+const CORRIDOR_LAYERS = ["corridors-glow", "corridors-casing", "corridors-flow"];
+const SPOT_LAYERS = ["spots-pulsing-aura", "spots-core"];
+const OWN_SOURCES = ["corridors-src", "spots-src"];
+
+function applyTheme(map: MapLibreMap, theme: Theme): void {
+  applyBasemapTheme(map, theme);
+  if (!map.getLayer("corridors-casing")) return;
+  // Casing separates the colored line from the basemap: white on light, near-black on dark
+  map.setPaintProperty("corridors-casing", "line-color", theme === "dark" ? "#05070c" : "#ffffff");
+  map.setPaintProperty("corridors-glow", "line-opacity", theme === "dark" ? 0.45 : 0.25);
+}
 
 // ponytail: maplibre v6 resolves its worker next to import.meta.url, which Turbopack bundling breaks.
 // Worker + shared chunk are copied to public/maplibre by the postinstall script.
@@ -41,6 +52,7 @@ interface MapProps {
   onZoomChange?: (zoom: number) => void;
   flyToTarget: { coords: [number, number]; zoom: number; key: number } | null;
   pitchTarget: number;
+  theme: Theme;
 }
 
 export function MapComponent({
@@ -50,12 +62,15 @@ export function MapComponent({
   onZoomChange,
   flyToTarget,
   pitchTarget,
+  theme,
 }: MapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const popupRef = useRef<Popup | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  // Theme the current style was built for; the init effect reads it once, the theme effect keeps it in sync
+  const styleThemeRef = useRef<Theme>(theme);
 
   // Initialize MapLibre GL
   useEffect(() => {
@@ -65,7 +80,7 @@ export function MapComponent({
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: MAP_STYLE_URL,
+      style: MAP_STYLES[styleThemeRef.current],
       center: JAKARTA_CENTER,
       zoom: JAKARTA_DEFAULT_ZOOM,
       minZoom: 10,
@@ -115,7 +130,6 @@ export function MapComponent({
       if (map.getSource("corridors-src")) return; // already initialized
 
       setMapLoaded(true);
-      applyGreyBasemap(map);
 
       // 1. Add Corridors Source
       map.addSource("corridors-src", {
@@ -123,7 +137,21 @@ export function MapComponent({
         data: corridors,
       });
 
-      // 2. Corridor outline casing for crisp contrast over light streets
+      // 2. Soft glow under each line so traffic colors pop on either basemap
+      map.addLayer({
+        id: "corridors-glow",
+        type: "line",
+        source: "corridors-src",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": RATIO_COLOR,
+          "line-width": ["match", ["get", "road_category"], "highway", 16, "primary", 13, 9],
+          "line-blur": 8,
+          "line-opacity": 0.25,
+        },
+      });
+
+      // 3. Corridor outline casing for crisp contrast over light streets
       map.addLayer({
         id: "corridors-casing",
         type: "line",
@@ -145,7 +173,7 @@ export function MapComponent({
         },
       });
 
-      // 3. Corridor Colored Flow Line
+      // 4. Corridor Colored Flow Line
       map.addLayer({
         id: "corridors-flow",
         type: "line",
@@ -222,6 +250,8 @@ export function MapComponent({
           "circle-opacity": 1.0,
         },
       });
+
+      applyTheme(map, styleThemeRef.current);
 
       // 7. Pulsing Animation Loop for Bottleneck spots
       const startTime = performance.now();
@@ -351,44 +381,38 @@ export function MapComponent({
     const map = mapRef.current;
 
     try {
-      // Visibility toggles
-      const corridorVisibility = filters.showCorridors ? "visible" : "none";
-      if (map.getLayer("corridors-casing")) {
-        map.setLayoutProperty("corridors-casing", "visibility", corridorVisibility);
-      }
-      if (map.getLayer("corridors-flow")) {
-        map.setLayoutProperty("corridors-flow", "visibility", corridorVisibility);
-      }
-
-      const spotVisibility = filters.showSpots ? "visible" : "none";
-      if (map.getLayer("spots-pulsing-aura")) {
-        map.setLayoutProperty("spots-pulsing-aura", "visibility", spotVisibility);
-      }
-      if (map.getLayer("spots-core")) {
-        map.setLayoutProperty("spots-core", "visibility", spotVisibility);
-      }
-
-      // Filter expressions
-      if (filters.filterMode === "free_flow_only") {
-        const corridorFilter = [">=", ["get", "congestion_ratio"], 0.85] as FilterSpecification;
-        if (map.getLayer("corridors-casing")) map.setFilter("corridors-casing", corridorFilter);
-        if (map.getLayer("corridors-flow")) map.setFilter("corridors-flow", corridorFilter);
-
-        const spotFilter = ["==", ["get", "spot_type"], "free_flow_hub"] as FilterSpecification;
-        if (map.getLayer("spots-pulsing-aura")) map.setFilter("spots-pulsing-aura", spotFilter);
-        if (map.getLayer("spots-core")) map.setFilter("spots-core", spotFilter);
-      } else {
-        const corridorFilter = [">=", ["get", "congestion_ratio"], filters.minThreshold] as FilterSpecification;
-        if (map.getLayer("corridors-casing")) map.setFilter("corridors-casing", corridorFilter);
-        if (map.getLayer("corridors-flow")) map.setFilter("corridors-flow", corridorFilter);
-
-        if (map.getLayer("spots-pulsing-aura")) map.setFilter("spots-pulsing-aura", null);
-        if (map.getLayer("spots-core")) map.setFilter("spots-core", null);
-      }
+      const setAll = (layers: string[], visible: boolean, filter: FilterSpecification | null) => {
+        for (const id of layers) {
+          if (!map.getLayer(id)) continue;
+          map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+          map.setFilter(id, filter);
+        }
+      };
+      const freeFlowOnly = filters.filterMode === "free_flow_only";
+      setAll(CORRIDOR_LAYERS, filters.showCorridors, [">=", ["get", "congestion_ratio"], freeFlowOnly ? 0.85 : filters.minThreshold]);
+      setAll(SPOT_LAYERS, filters.showSpots, freeFlowOnly ? ["==", ["get", "spot_type"], "free_flow_hub"] : null);
     } catch (e) {
       console.warn("Filter update sync:", e);
     }
   }, [filters, mapLoaded]);
+
+  // Swap basemap on theme change, carrying our sources + layers into the new style
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || styleThemeRef.current === theme) return;
+    styleThemeRef.current = theme;
+    map.setStyle(MAP_STYLES[theme], {
+      transformStyle: (prev, next) => ({
+        ...next,
+        sources: {
+          ...next.sources,
+          ...Object.fromEntries(OWN_SOURCES.map((id) => [id, prev!.sources[id]])),
+        },
+        layers: [...next.layers, ...prev!.layers.filter((l) => [...CORRIDOR_LAYERS, ...SPOT_LAYERS].includes(l.id))],
+      }),
+    });
+    map.once("style.load", () => applyTheme(map, theme));
+  }, [theme, mapLoaded]);
 
   // Handle Fly-To triggers from browse list
   useEffect(() => {
